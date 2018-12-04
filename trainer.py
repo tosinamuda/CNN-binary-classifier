@@ -7,22 +7,19 @@ from tensorflow.python.client import device_lib
 from config import *
 import pprint
 
-if 'COLAB_TPU_ADDR' not in os.environ:
-    print('ERROR: Not connected to a TPU runtime; please see the first cell in this notebook for instructions!')
-else:
-    tpu_address = 'grpc://' + os.environ['COLAB_TPU_ADDR']
-    print ('TPU address is', tpu_address)
+device_name = tf.test.gpu_device_name()
+if device_name != '/device:GPU:0':
+    raise SystemError('GPU device not found')
+print('Found GPU at: {}'.format(device_name))
 
-with tf.Session(tpu_address) as session:
-    devices = session.list_devices()
-    
-print('TPU devices:')
-pprint.pprint(devices)
+# See https://www.tensorflow.org/tutorials/using_gpu#allowing_gpu_memory_growth
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
 
-#print(device_lib.list_local_devices())
+print(device_lib.list_local_devices())
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-session=tf.Session(tpu_address)
+session=tf.Session(config=config)
 #create Placeholders for images and labels
 images_ph=tf.placeholder(tf.float32,shape=[None,height,width,color_channels])
 labels_ph=tf.placeholder(tf.float32,shape=[None,number_of_classes])
@@ -40,7 +37,6 @@ def trainer(network,number_of_images):
     #Now backpropagate to minimise the cost in the network.
     optimizer=tf.train.AdamOptimizer().minimize(cost)
     #print(optimizer)
-    session.run(tf.contrib.tpu.initialize_system())
     session.run(tf.global_variables_initializer())
     writer = tf.summary.FileWriter(model_save_name, graph=tf.get_default_graph())
     merged = tf.summary.merge_all()
@@ -60,9 +56,7 @@ def trainer(network,number_of_images):
             print('Epoch number ', epoch, 'batch', batch, 'complete')
             writer.add_summary(summary,counter)
         saver.save(session, os.path.join(os.getcwd(), model_save_name))
-    session.run(tf.contrib.tpu.shutdown_system())
-    session.close()
-
+    
 if __name__=="__main__":
     tools=utils()
     model=model_tools()
