@@ -5,11 +5,24 @@ from build_model import model_tools
 import model_architecture
 from tensorflow.python.client import device_lib
 from config import *
+import pprint
 
-print(device_lib.list_local_devices())
+if 'COLAB_TPU_ADDR' not in os.environ:
+  print('ERROR: Not connected to a TPU runtime; please see the first cell in this notebook for instructions!')
+else:
+  tpu_address = 'grpc://' + os.environ['COLAB_TPU_ADDR']
+  print ('TPU address is', tpu_address)
+​
+  with tf.Session(tpu_address) as session:
+    devices = session.list_devices()
+    
+  print('TPU devices:')
+  pprint.pprint(devices)
+
+#print(device_lib.list_local_devices())
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 
-session=tf.Session()
+session=tf.Session(tpu_address)
 #create Placeholders for images and labels
 images_ph=tf.placeholder(tf.float32,shape=[None,height,width,color_channels])
 labels_ph=tf.placeholder(tf.float32,shape=[None,number_of_classes])
@@ -27,6 +40,7 @@ def trainer(network,number_of_images):
     #Now backpropagate to minimise the cost in the network.
     optimizer=tf.train.AdamOptimizer().minimize(cost)
     #print(optimizer)
+    session.run(tf.contrib.tpu.initialize_system())
     session.run(tf.global_variables_initializer())
     writer = tf.summary.FileWriter(model_save_name, graph=tf.get_default_graph())
     merged = tf.summary.merge_all()
@@ -46,6 +60,8 @@ def trainer(network,number_of_images):
             print('Epoch number ', epoch, 'batch', batch, 'complete')
             writer.add_summary(summary,counter)
         saver.save(session, os.path.join(os.getcwd(), model_save_name))
+    session.run(tf.contrib.tpu.shutdown_system())
+    session.close()
 
 if __name__=="__main__":
     tools=utils()
