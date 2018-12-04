@@ -12,7 +12,7 @@ if 'COLAB_TPU_ADDR' not in os.environ:
 else:
     tpu_address = 'grpc://' + os.environ['COLAB_TPU_ADDR']
     print ('TPU address is', tpu_address)
-​
+
 with tf.Session(tpu_address) as session:
     devices = session.list_devices()
     
